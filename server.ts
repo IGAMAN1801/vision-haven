@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import nodemailer from "nodemailer";
 import { fileURLToPath } from 'url';
@@ -12,6 +11,11 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json());
+
+  // Health check route
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok" });
+  });
 
   // API route for contact form
   app.post("/api/contact", async (req, res) => {
@@ -103,6 +107,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -111,7 +116,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*all', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
