@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GoogleGenAI } from "@google/genai";
 
 const Chatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,16 +26,19 @@ const Chatbot: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const chat = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        config: {
-          systemInstruction: "You are the VisionHaven AI Concierge, a high-luxury, sophisticated, and helpful assistant for an AI-powered interior design studio. Your tone is elegant, professional, and reassuring. You help users with interior design advice, explain how the VisionHaven tool works (uploading images for AI restyling), and guide them to the contact page if they need bespoke human assistance. Keep responses concise and luxurious.",
-        },
+      const res = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: userMessage })
       });
 
-      const response = await chat.sendMessage({ message: userMessage });
-      setMessages(prev => [...prev, { role: 'ai', text: response.text || "I apologize, my neural link is momentarily disrupted. How else can I assist?" }]);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to connect to AI Concierge');
+      }
+
+      const data = await res.json();
+      setMessages(prev => [...prev, { role: 'ai', text: data.text || "I apologize, my neural link is momentarily disrupted. How else can I assist?" }]);
     } catch (error) {
       console.error("Chat error:", error);
       setMessages(prev => [...prev, { role: 'ai', text: "I am currently attending to another guest. Please try again in a moment." }]);

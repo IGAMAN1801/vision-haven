@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { motion as motionBase, AnimatePresence } from 'framer-motion';
-import { GoogleGenAI } from "@google/genai";
 
 const motion = motionBase as any;
 
@@ -33,16 +32,19 @@ const ContactPage: React.FC = () => {
       }
 
       // 2. Generate AI confirmation message (optional but nice)
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `A customer named ${formState.name} (email: ${formState.email}) sent a message: "${formState.message}". 
       As a VisionHaven AI assistant, generate a brief, ultra-luxurious, and reassuring confirmation message that they will receive an official response soon. Keep it under 50 words.`;
       
-      const res = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt
+      const aiRes = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
       });
       
-      setResponse(res.text || "Your message has been received by our concierge team.");
+      if (!aiRes.ok) throw new Error('AI Engine momentarily unavailable');
+      const aiData = await aiRes.json();
+      
+      setResponse(aiData.text || "Your message has been received by our concierge team.");
       setFormState({ name: '', email: '', message: '', subject: 'General Inquiry' });
     } catch (err: any) {
       console.error("Submission error:", err);

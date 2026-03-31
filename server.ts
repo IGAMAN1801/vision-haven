@@ -47,7 +47,7 @@ async function startServer() {
 
       const mailOptions = {
         from: emailUser,
-        to: process.env.RECIPIENT_EMAIL || 'amanshaikh200518@gmail.com', // Default to your verified email
+        to: process.env.RECIPIENT_EMAIL, // Removed hardcoded email
         subject: `VisionHaven Contact: ${subject} from ${name}`,
         text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\nMessage:\n${message}`,
         replyTo: email
@@ -92,7 +92,7 @@ async function startServer() {
 
       const mailOptions = {
         from: emailUser,
-        to: process.env.RECIPIENT_EMAIL || 'amanshaikh200518@gmail.com',
+        to: process.env.RECIPIENT_EMAIL,
         subject: `VisionHaven System Report: ${type}`,
         text: `Report Type: ${type}\nUser Email: ${userEmail || 'Anonymous'}\n\nDescription:\n${description}`,
       };
