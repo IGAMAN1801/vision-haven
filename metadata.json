@@ -1,0 +1,7 @@
+{
+  "name": "VisionHaven - AI Interior Design",
+  "description": "An AI-powered platform for room analysis, texture recommendations, and virtual interior design previews.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
