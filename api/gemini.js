@@ -42,7 +42,10 @@ export default async function handler(req, res) {
         }
       });
 
-      return res.status(200).json(JSON.parse(result.text));
+      // Safe JSON parsing to handle potential markdown wrappers
+      const text = result.text || "{}";
+      const cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+      return res.status(200).json(JSON.parse(cleaned));
     } else if (type === 'restyle') {
       const result = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image',
@@ -54,14 +57,14 @@ export default async function handler(req, res) {
         }
       });
 
-      if (result.candidates && result.candidates[0].content.parts) {
+      if (result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts) {
         for (const part of result.candidates[0].content.parts) {
           if (part.inlineData) {
             return res.status(200).json({ image: `data:image/png;base64,${part.inlineData.data}` });
           }
         }
       }
-      return res.status(500).json({ error: 'Failed to generate restyled image' });
+      return res.status(500).json({ error: 'Failed to generate restyled image: No image data returned' });
     } else {
       // Default chatbot prompt
       const finalPrompt = prompt && prompt.trim() !== "" 
@@ -73,7 +76,7 @@ export default async function handler(req, res) {
         contents: finalPrompt,
       });
 
-      return res.status(200).json({ text: result.text });
+      return res.status(200).json({ text: result.text || "I'm sorry, I couldn't generate a response." });
     }
   } catch (error) {
     console.error('Gemini API Error:', error);
