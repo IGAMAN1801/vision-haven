@@ -34,30 +34,46 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const stored = localStorage.getItem('visionhaven_session');
     if (stored) {
-      const session = JSON.parse(stored);
-      setUserSession(session);
-      setProfileForm({ name: session.name, preferences: 'Luxury Modern' });
-      
-      const projectsKey = `vh_projects_${session.id}`;
-      const savedProjects = JSON.parse(localStorage.getItem(projectsKey) || '[]');
-      setProjects(savedProjects.length > 0 ? savedProjects : [{ id: '1', title: 'Welcome Visualization', date: 'Initial', img: 'https://picsum.photos/seed/welcome-viz/800/600' }]);
+      try {
+        const session = JSON.parse(stored);
+        setUserSession(session);
+        setProfileForm({ name: session.name, preferences: 'Luxury Modern' });
+        
+        const projectsKey = `vh_projects_${session.id}`;
+        try {
+          const savedProjects = JSON.parse(localStorage.getItem(projectsKey) || '[]');
+          setProjects(savedProjects.length > 0 ? savedProjects : [{ id: '1', title: 'Welcome Visualization', date: 'Initial', img: 'https://picsum.photos/seed/welcome-viz/800/600' }]);
+        } catch (e) {
+          console.error("Failed to parse projects:", e);
+          setProjects([{ id: '1', title: 'Welcome Visualization', date: 'Initial', img: 'https://picsum.photos/seed/welcome-viz/800/600' }]);
+        }
 
-      const vaultKey = `vh_vault_${session.id}`;
-      const savedVault = JSON.parse(localStorage.getItem(vaultKey) || '[]');
-      setVault(savedVault);
+        const vaultKey = `vh_vault_${session.id}`;
+        try {
+          const savedVault = JSON.parse(localStorage.getItem(vaultKey) || '[]');
+          setVault(savedVault);
+        } catch (e) {
+          console.error("Failed to parse vault:", e);
+          setVault([]);
+        }
 
-      // Mock History
-      setHistory([
-        { id: 'h1', event: 'Neural Scan Initiated', type: 'System', date: '2 hours ago' },
-        { id: 'h2', event: 'Texture Set "Ruby Deep" Applied', type: 'Design', date: 'Yesterday' },
-        { id: 'h3', event: 'Project "Penthouse" Archived', type: 'Archive', date: '3 days ago' },
-      ]);
+        // Mock History
+        setHistory([
+          { id: 'h1', event: 'Neural Scan Initiated', type: 'System', date: '2 hours ago' },
+          { id: 'h2', event: 'Texture Set "Ruby Deep" Applied', type: 'Design', date: 'Yesterday' },
+          { id: 'h3', event: 'Project "Penthouse" Archived', type: 'Archive', date: '3 days ago' },
+        ]);
 
-      // Mock Procurement
-      setProcurement([
-        { id: 'p1', name: 'Italian Arabescato Marble', price: '$240/sqm', vendor: 'Carrara Elite' },
-        { id: 'p2', name: 'Brushed Brass Fixtures', price: '$1,200', vendor: 'Aureum Fittings' },
-      ]);
+        // Mock Procurement
+        setProcurement([
+          { id: 'p1', name: 'Italian Arabescato Marble', price: '$240/sqm', vendor: 'Carrara Elite' },
+          { id: 'p2', name: 'Brushed Brass Fixtures', price: '$1,200', vendor: 'Aureum Fittings' },
+        ]);
+      } catch (e) {
+        console.error("Failed to parse session:", e);
+        localStorage.removeItem('visionhaven_session');
+        navigate('/login');
+      }
     } else {
       navigate('/login');
     }

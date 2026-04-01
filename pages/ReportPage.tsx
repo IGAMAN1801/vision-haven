@@ -16,7 +16,14 @@ const ReportPage: React.FC = () => {
     e.preventDefault();
     
     const sessionStr = localStorage.getItem('visionhaven_session');
-    const userEmail = sessionStr ? JSON.parse(sessionStr).email : null;
+    let userEmail = null;
+    if (sessionStr) {
+      try {
+        userEmail = JSON.parse(sessionStr).email;
+      } catch (e) {
+        console.error("Failed to parse session:", e);
+      }
+    }
 
     try {
       const res = await fetch('/api/report', {

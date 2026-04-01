@@ -189,7 +189,10 @@ const DesignToolPage: React.FC = () => {
     setIsRestyling(true);
     setIsSavedInVault(false);
     try {
-      const base64 = image.split(',')[1];
+      // Resize image before sending to API to avoid Vercel payload limits
+      const resizedImage = await resizeImage(image);
+      const base64 = resizedImage.split(',')[1];
+      
       const atmos = ATMOSPHERIC_PRESETS.find(a => a.id === activeAtmosphere)?.name || 'Studio';
       const tex = TEXTURE_PROFILES.find(t => t.id === activeTexture)?.name || 'Matte';
       const restyled = await restyleRoomImage(base64, `${swatch.prompt}, ${tex} finish, under ${atmos} lighting conditions.`);
