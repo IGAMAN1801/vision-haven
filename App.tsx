@@ -16,7 +16,7 @@ import ContactPage from './pages/ContactPage';
 import ReportPage from './pages/ReportPage';
 import VersionHistoryPage from './pages/VersionHistoryPage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import Chatbot from './components/Chatbot';
+import Help from './components/Help';
 
 const { HashRouter, Routes, Route } = ReactRouterDom as any;
 const Router = HashRouter;
@@ -44,8 +44,8 @@ const App: React.FC = () => {
         </main>
         <Footer />
         
-        {/* AI Concierge Chatbot */}
-        <Chatbot />
+        {/* Help Assistant */}
+        <Help />
       </div>
     </Router>
   );

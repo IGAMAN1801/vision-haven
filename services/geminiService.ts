@@ -2,9 +2,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { RoomAnalysis } from "../types";
 
-// Initialize Gemini API
-// The platform automatically manages the GEMINI_API_KEY for the frontend.
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
+// Initialize Gemini API lazily to prevent startup crashes if key is missing
+let aiInstance: GoogleGenAI | null = null;
+
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("Haven Neural Engine: GEMINI_API_KEY is not configured. Please check your environment settings.");
+    }
+    aiInstance = new GoogleGenAI({ apiKey });
+  }
+  return aiInstance;
+};
 
 /**
  * Helper to extract JSON from model response
@@ -14,7 +24,11 @@ const extractJson = (text: string, type: 'analyze' | 'chat'): any => {
     const cleanedText = text.replace(/```json\n?|```/g, '').trim();
     const jsonMatch = cleanedText.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch (innerE) {
+        console.error("JSON Parse Error on match:", innerE, "Match:", jsonMatch[0]);
+      }
     }
     return JSON.parse(cleanedText);
   } catch (e) {
@@ -39,7 +53,8 @@ export const analyzeRoomImage = async (
   base64Image: string, 
   config?: { climate: string, style: string, preferences: string }
 ): Promise<RoomAnalysis> => {
-  const model = "gemini-3.1-pro-preview"; 
+  const ai = getAI();
+  const model = "gemini-3-flash-preview"; 
   const contextPrompt = config 
     ? `The client is in a ${config.climate} climate and prefers a ${config.style} aesthetic. ${config.style === 'Garden Oasis' ? 'Focus on outdoor landscaping, patio integration, and lush greenery.' : ''} Specific preferences: ${config.preferences}.`
     : "";
@@ -102,6 +117,7 @@ export const analyzeRoomImage = async (
 
 export const generateDesignVisual = async (prompt: string): Promise<string> => {
   try {
+    const ai = getAI();
     const result = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -118,24 +134,25 @@ export const generateDesignVisual = async (prompt: string): Promise<string> => {
         }
       }
     }
-    return '';
-  } catch (error) {
+    throw new Error("Neural engine failed to produce a visual output.");
+  } catch (error: any) {
     console.error('Gemini Visual Generation Error:', error);
-    return '';
+    throw new Error(error.message || "Visual synthesis failed.");
   }
 };
 
-export const restyleRoomImage = async (base64Image: string, stylePrompt: string): Promise<string> => {
+export const restyleRoomImage = async (base64Image: string, stylePrompt: string, retryCount = 0): Promise<string> => {
+  const ai = getAI();
   try {
+    const imageSizeKB = Math.round(base64Image.length * 0.75 / 1024);
+    console.log(`Neural Restyle Initiated (Attempt ${retryCount + 1}). Image Size: ~${imageSizeKB}KB. Prompt: ${stylePrompt}`);
+    
     const result = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
         parts: [
           { inlineData: { mimeType: "image/jpeg", data: base64Image } },
-          { text: `MANDATORY: Preserve the EXACT architectural structure, window placement, furniture silhouette, and camera angle of the provided image. 
-                   TASK: Re-skin the surfaces using the following style: ${stylePrompt}. 
-                   Change only the MATERIAL TEXTURES and COLORS. 
-                   Keep the floor plan identical. Output should look like high-end architectural photography. ABSOLUTELY NO HUMANS OR FACES.` }
+          { text: `Restyle this room in ${stylePrompt} style. Preserve architectural structure and layout. High-end photography.` }
         ]
       }
     });
@@ -143,13 +160,23 @@ export const restyleRoomImage = async (base64Image: string, stylePrompt: string)
     if (result.candidates && result.candidates[0] && result.candidates[0].content && result.candidates[0].content.parts) {
       for (const part of result.candidates[0].content.parts) {
         if (part.inlineData) {
+          console.log("Neural Restyle Successful.");
           return `data:image/png;base64,${part.inlineData.data}`;
         }
       }
     }
-    return '';
-  } catch (error) {
-    console.error('Gemini Restyle Error:', error);
-    return '';
+    throw new Error("Neural engine failed to restyle the image.");
+  } catch (error: any) {
+    console.error(`Gemini Restyle Error (Attempt ${retryCount + 1}):`, error);
+    
+    // Retry on 500 errors or transient failures
+    if (retryCount < 2 && (error.message?.includes('500') || error.message?.includes('INTERNAL') || error.message?.includes('fetch'))) {
+      const waitTime = (retryCount + 1) * 2000;
+      console.log(`Retrying in ${waitTime}ms...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      return restyleRoomImage(base64Image, stylePrompt, retryCount + 1);
+    }
+    
+    throw new Error(error.message || "Neural restyling failed due to an internal engine error.");
   }
 };

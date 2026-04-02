@@ -32,7 +32,7 @@ export const authService = {
     }
 
     const newUser: User = {
-      id: crypto.randomUUID(),
+      id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       name: userData.name || 'Anonymous Curator',
       email: userData.email || `user_${Math.random().toString(36).substring(7)}@haven.com`,
       avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${userData.email || Math.random()}`,
@@ -46,7 +46,12 @@ export const authService = {
     };
 
     users.push(newUser);
-    localStorage.setItem(DB_KEY, JSON.stringify(users));
+    try {
+      localStorage.setItem(DB_KEY, JSON.stringify(users));
+    } catch (e) {
+      console.error("Failed to save user to DB:", e);
+      throw new Error("Local storage quota exceeded. Could not register user.");
+    }
     return newUser;
   },
 

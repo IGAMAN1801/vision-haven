@@ -113,32 +113,41 @@ const DesignToolPage: React.FC = () => {
     }
   };
 
-  const resizeImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
-    return new Promise((resolve) => {
+  const resizeImage = (base64Str: string, maxWidth = 768, maxHeight = 768): Promise<string> => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       img.src = base64Str;
+      img.onerror = () => reject(new Error("Failed to load image for resizing."));
       img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
 
-        if (width > height) {
-          if (width > maxWidth) {
-            height *= maxWidth / width;
-            width = maxWidth;
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
           }
-        } else {
-          if (height > maxHeight) {
-            width *= maxHeight / height;
-            height = maxHeight;
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error("Could not create canvas context."));
+            return;
           }
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8));
+        } catch (e) {
+          reject(e);
         }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
     });
   };
@@ -150,10 +159,10 @@ const DesignToolPage: React.FC = () => {
     setProgress(10);
     setIsSavedInVault(false);
     try {
-      const progressInterval = setInterval(() => setProgress(prev => (prev >= 90 ? prev : prev + 2)), 400);
+      const progressInterval = setInterval(() => setProgress(prev => (prev >= 95 ? prev : prev + 5)), 150);
       
-      // Resize image before sending to API to avoid Vercel payload limits (4.5MB)
-      const resizedImage = await resizeImage(image);
+      // Resize image before sending to API to avoid Vercel payload limits (4.5MB) and improve stability
+      const resizedImage = await resizeImage(image, 512, 512);
       const base64 = resizedImage.split(',')[1];
       
       const result = await analyzeRoomImage(base64, { climate, style, preferences });
@@ -169,7 +178,7 @@ const DesignToolPage: React.FC = () => {
       setAnalysis(result);
       const atmos = ATMOSPHERIC_PRESETS.find(a => a.id === activeAtmosphere)?.name || 'Studio';
       const tex = TEXTURE_PROFILES.find(t => t.id === activeTexture)?.name || 'Matte';
-      const visionPrompt = `High-luxury ${style} makeover with ${atmos} lighting and ${tex} finishes. Materials: ${result.recommendations.map(r => r.name).join(', ')}.`;
+      const visionPrompt = `${style} style, ${atmos} lighting, ${tex} finishes.`;
       const after = await restyleRoomImage(base64, visionPrompt);
       setAfterImage(after);
       
@@ -189,8 +198,8 @@ const DesignToolPage: React.FC = () => {
     setIsRestyling(true);
     setIsSavedInVault(false);
     try {
-      // Resize image before sending to API to avoid Vercel payload limits
-      const resizedImage = await resizeImage(image);
+      // Resize image before sending to API to avoid Vercel payload limits and improve stability
+      const resizedImage = await resizeImage(image, 512, 512);
       const base64 = resizedImage.split(',')[1];
       
       const atmos = ATMOSPHERIC_PRESETS.find(a => a.id === activeAtmosphere)?.name || 'Studio';
@@ -206,45 +215,66 @@ const DesignToolPage: React.FC = () => {
   };
 
   const saveProjectToDashboard = (result: RoomAnalysis, afterImg: string | null) => {
-    const sessionStr = localStorage.getItem('visionhaven_session');
-    if (!sessionStr) return;
-    const session = JSON.parse(sessionStr);
-    const projectsKey = `vh_projects_${session.id}`;
-    const existing = JSON.parse(localStorage.getItem(projectsKey) || '[]');
-    const newProject = {
-      id: crypto.randomUUID(),
-      title: `${style} ${result.roomType}`,
-      date: new Date().toLocaleDateString(),
-      img: afterImg || image,
-      analysis: result
-    };
-    localStorage.setItem(projectsKey, JSON.stringify([newProject, ...existing]));
+    try {
+      const sessionStr = localStorage.getItem('visionhaven_session');
+      if (!sessionStr) return;
+      const session = JSON.parse(sessionStr);
+      const projectsKey = `vh_projects_${session.id}`;
+      const existing = JSON.parse(localStorage.getItem(projectsKey) || '[]');
+      const newProject = {
+        id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+        title: `${style} ${result.roomType}`,
+        date: new Date().toLocaleDateString(),
+        img: afterImg || image,
+        analysis: result
+      };
+      localStorage.setItem(projectsKey, JSON.stringify([newProject, ...existing]));
+    } catch (e) {
+      console.error("Failed to save project to dashboard:", e);
+    }
   };
 
   const toggleVaultSave = () => {
-    const sessionStr = localStorage.getItem('visionhaven_session');
-    if (!sessionStr) {
-      navigate('/login');
-      return;
+    console.log("Attempting to save to vault...");
+    try {
+      const sessionStr = localStorage.getItem('visionhaven_session');
+      if (!sessionStr) {
+        console.warn("No active session found, redirecting to login.");
+        navigate('/login');
+        return;
+      }
+      
+      if (!afterImage) {
+        console.warn("No generated image to save.");
+        return;
+      }
+
+      if (isSavedInVault) {
+        console.log("Already saved in vault.");
+        return;
+      }
+
+      const session = JSON.parse(sessionStr);
+      const vaultKey = `vh_vault_${session.id}`;
+      const existingVault = JSON.parse(localStorage.getItem(vaultKey) || '[]');
+      
+      const newFavorite = {
+        id: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+        title: `${style} Synthesis`,
+        category: analysis?.roomType || 'Unknown Room',
+        img: afterImage,
+        timestamp: new Date().toISOString(),
+        style: style,
+        analysis: analysis
+      };
+
+      console.log("Saving to vault:", newFavorite);
+      localStorage.setItem(vaultKey, JSON.stringify([newFavorite, ...existingVault]));
+      setIsSavedInVault(true);
+      console.log("Successfully saved to vault.");
+    } catch (e) {
+      console.error("Failed to save to vault:", e);
     }
-    if (!afterImage || isSavedInVault) return;
-
-    const session = JSON.parse(sessionStr);
-    const vaultKey = `vh_vault_${session.id}`;
-    const existingVault = JSON.parse(localStorage.getItem(vaultKey) || '[]');
-    
-    const newFavorite = {
-      id: crypto.randomUUID(),
-      title: `${style} Synthesis`,
-      category: analysis?.roomType || 'Unknown Room',
-      img: afterImage,
-      timestamp: new Date().toISOString(),
-      style: style,
-      analysis: analysis
-    };
-
-    localStorage.setItem(vaultKey, JSON.stringify([newFavorite, ...existingVault]));
-    setIsSavedInVault(true);
   };
 
   const activeSwatchColor = [...COLOR_COLLECTIONS.Spectral, ...COLOR_COLLECTIONS.Pastel, ...COLOR_COLLECTIONS.Earthy, ...COLOR_COLLECTIONS.Metallic, ...COLOR_COLLECTIONS.Luxury].find(s => s.id === activeSwatch)?.color || '#C5A059';
@@ -395,19 +425,22 @@ const DesignToolPage: React.FC = () => {
                     <BeforeAfterSlider before={image!} after={afterImage} />
                     
                     {/* Add to Favorites/Vault Button */}
-                    <div className="absolute bottom-12 right-12 z-40 flex items-center gap-6">
+                    <div className="absolute bottom-12 right-12 z-50 flex items-center gap-6">
                        <motion.button 
                         whileHover={{ scale: 1.1, rotate: 5 }}
                         whileTap={{ scale: 0.9 }}
-                        onClick={toggleVaultSave}
-                        className={`p-6 rounded-full shadow-2xl backdrop-blur-xl border transition-all flex items-center gap-3 ${isSavedInVault ? 'bg-luxury-gold border-luxury-gold text-white' : 'bg-white/20 border-white/40 text-white hover:bg-white hover:text-luxury-charcoal'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleVaultSave();
+                        }}
+                        className={`p-6 rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.3)] backdrop-blur-2xl border transition-all flex items-center gap-4 pointer-events-auto ${isSavedInVault ? 'bg-luxury-gold border-luxury-gold text-white' : 'bg-white/20 border-white/40 text-white hover:bg-white hover:text-luxury-charcoal'}`}
                        >
                          {isSavedInVault ? (
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
+                            <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" /></svg>
                          ) : (
-                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
                          )}
-                         <span className="text-[10px] uppercase tracking-widest font-bold">{isSavedInVault ? 'Stored in Vault' : 'Add to Vault'}</span>
+                         <span className="text-[11px] uppercase tracking-[0.2em] font-bold">{isSavedInVault ? 'Added to Vault' : 'Add to Vault'}</span>
                        </motion.button>
                     </div>
 

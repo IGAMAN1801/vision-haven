@@ -2,10 +2,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const Chatbot: React.FC = () => {
+const Help: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<{ role: 'user' | 'ai', text: string }[]>([
-    { role: 'ai', text: "Welcome to VisionHaven. I am your AI Concierge. How may I assist with your spatial vision today?" }
+    { role: 'ai', text: "Welcome to VisionHaven. I am your Help assistant. How may I assist with your spatial vision today?" }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -64,7 +64,7 @@ const Chatbot: React.FC = () => {
                   <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
                 </div>
                 <div>
-                  <h3 className="text-sm font-serif tracking-widest uppercase">AI Concierge</h3>
+                  <h3 className="text-sm font-serif tracking-widest uppercase">Help</h3>
                   <p className="text-[8px] text-luxury-gold uppercase tracking-[0.3em] font-bold">Active Protocol</p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ const Chatbot: React.FC = () => {
         <div className="absolute inset-0 bg-luxury-gold rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity animate-pulse"></div>
         <div className="relative bg-luxury-charcoal text-white px-6 py-4 rounded-full shadow-2xl border border-luxury-gold/30 flex items-center gap-3 hover:scale-105 transition-transform duration-500">
           <div className="w-2 h-2 bg-luxury-gold rounded-full animate-ping"></div>
-          <span className="text-[10px] uppercase tracking-[0.2em] font-bold">AI Concierge</span>
+          <span className="text-[10px] uppercase tracking-[0.2em] font-bold">Help</span>
           <svg className={`w-4 h-4 text-luxury-gold transition-transform duration-500 ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -143,4 +143,4 @@ const Chatbot: React.FC = () => {
   );
 };
 
-export default Chatbot;
+export default Help;

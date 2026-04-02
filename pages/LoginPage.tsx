@@ -64,7 +64,13 @@ const LoginPage: React.FC = () => {
         avatarUrl: user.avatarUrl
       };
 
-      localStorage.setItem('visionhaven_session', JSON.stringify(sessionData));
+      try {
+        localStorage.setItem('visionhaven_session', JSON.stringify(sessionData));
+      } catch (e) {
+        console.error("Failed to save session:", e);
+        setError("Local storage quota exceeded. Could not save session.");
+        return;
+      }
       
       if (user.role === 'vendor') {
         navigate('/vendor');
@@ -83,15 +89,21 @@ const LoginPage: React.FC = () => {
     setError(null);
     try {
       const user = await authService.socialAuth(provider);
-      localStorage.setItem('visionhaven_session', JSON.stringify({
-        isLoggedIn: true,
-        role: user.role,
-        name: user.name,
-        email: user.email,
-        id: user.id,
-        isPremium: user.isPremium,
-        avatarUrl: user.avatarUrl
-      }));
+      try {
+        localStorage.setItem('visionhaven_session', JSON.stringify({
+          isLoggedIn: true,
+          role: user.role,
+          name: user.name,
+          email: user.email,
+          id: user.id,
+          isPremium: user.isPremium,
+          avatarUrl: user.avatarUrl
+        }));
+      } catch (e) {
+        console.error("Failed to save social session:", e);
+        setError("Local storage quota exceeded. Could not save session.");
+        return;
+      }
       navigate('/dashboard');
     } catch (err: any) {
       setError("Social authentication failed.");
